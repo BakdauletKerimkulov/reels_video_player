@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player_reels/src/application/reels_cache_service.dart';
 import 'package:video_player_reels/src/data/reels_repository.dart';
-import 'package:video_player_reels/src/domain/reels.dart';
 import 'package:video_player_reels/src/presentation/reels_item.dart';
 
 class ReelsList extends ConsumerStatefulWidget {
@@ -27,39 +26,56 @@ class _ReelsListState extends ConsumerState<ReelsList> {
     super.dispose();
   }
 
-  void _onPageChanged(int newIndex, List<Reels> reels) {
-    final cacheService = ref.read(reelsCacheServiceProvider.notifier);
-
-    final currentReelsId = reels[newIndex].id;
-    final previousReelsId = reels[newIndex - 1].id;
-
-    cacheService.getController(previousReelsId)?.pause();
-
-    cacheService.getController(currentReelsId)?.play();
-
-    cacheService.preload(newIndex, reels);
-  }
-
   @override
   Widget build(BuildContext context) {
     final reelsAsync = ref.watch(reelsListStreamProvider);
     return reelsAsync.when(
       data: (reels) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (reels.isNotEmpty) {
-            ref.read(reelsCacheServiceProvider.notifier).preload(0, reels);
+        if (reels.isEmpty) {
+          return Center(child: Text('No reels'));
+        }
+
+        final urls = reels.map((r) => r.url).toList();
+
+        // Предзагружаем при первой загрузке
+        ref.listenManual(activeIndexProvider, (previous, next) {
+          if (previous == null || previous != next) {
+            // Предзагружаем вокруг нового индекса
+            ref.read(reelsCacheServiceProvider.notifier).preload(next, urls);
+
+            // Останавливаем предыдущее видео
+            if (previous != null) {
+              final prevController = ref.read(getControllerProvider(previous));
+              prevController
+                ?..pause()
+                ..seekTo(Duration.zero);
+            }
           }
         });
 
+        // Инициализация: предзагрузка при первом рендере
+        if (ref.read(activeIndexProvider) == 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(reelsCacheServiceProvider.notifier).preload(0, urls);
+          });
+        }
+
         return PageView.builder(
+          physics: BouncingScrollPhysics(),
           scrollDirection: Axis.vertical,
           controller: _controller,
+          itemCount: reels.length,
           onPageChanged: (index) {
-            _onPageChanged(index, reels);
+            ref.read(activeIndexProvider.notifier).setIndex(index);
           },
           itemBuilder: (context, index) {
             final reelsItem = reels[index];
-            return ReelsItem(reelsItem);
+            final controller = ref.watch(getControllerProvider(index));
+            return ReelsItem(
+              playerController: controller,
+              reelsItem: reelsItem,
+              index: index,
+            );
           },
         );
       },

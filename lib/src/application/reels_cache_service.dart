@@ -1,66 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_player_reels/src/domain/reels.dart';
 
 part 'reels_cache_service.g.dart';
 
 @riverpod
 class ReelsCacheService extends _$ReelsCacheService {
   @override
-  Map<String, VideoPlayerController> build() {
+  Map<int, VideoPlayerController> build() {
     ref.onDispose(() {
       _disposeAllControllers();
     });
     return {};
   }
 
-  VideoPlayerController? getController(String id) => state[id];
+  final _loading = <int>{};
 
-  Future<void> initFirstController(String id, String url) async {
-    await _addController(id, url);
-  }
+  VideoPlayerController? getController(int id) => state[id];
 
-  Future<void> _addController(String id, String url) async {
+  Future<void> _addController(int id, String url) async {
+    if (state.containsKey(id) || _loading.contains(id)) return;
+    _loading.add(id);
+
     try {
-      if (state.keys.contains(id)) return;
       final controller = VideoPlayerController.networkUrl(Uri.parse(url));
 
-      await controller.initialize();
-
-      controller
-        ..setLooping(true)
-        ..setVolume(1);
+      await controller
+          .initialize()
+          .then((_) {
+            controller
+              ..setLooping(true)
+              ..setVolume(1);
+          })
+          .onError((e, st) {
+            controller.dispose();
+          });
 
       state = {...state, id: controller};
     } catch (e) {
       debugPrint('Error adding controller for $id: ${e.toString()}');
+    } finally {
+      _loading.remove(id);
     }
   }
 
-  void preload(int currentIndex, List<Reels> reels) {
-    final neededIds = <String>{};
+  Future<void> preload(int currentIndex, List<String> urls) async {
+    // Какие индексы должны быть в кэше
+    final neededIds = <int>{
+      if (currentIndex - 1 >= 0) currentIndex - 1,
+      currentIndex,
+      if (currentIndex + 1 < urls.length) currentIndex + 1,
+    };
 
-    for (int i = currentIndex - 1; i <= currentIndex + 1; i++) {
-      if (i >= 0 && i < reels.length) {
-        final reelsItem = reels[i];
-        neededIds.add(reelsItem.id);
-        _addController(reelsItem.id, reelsItem.url);
-      }
+    // 1) Загружаем текущий ролик строго синхронно (await)
+    if (neededIds.contains(currentIndex)) {
+      await _addController(currentIndex, urls[currentIndex]);
     }
 
-    final updatedState = Map<String, VideoPlayerController>.from(state);
-    final toRemove = state.keys.where((id) => !neededIds.contains(id)).toList();
-
-    bool changed = false;
-    for (final id in toRemove) {
-      updatedState[id]!.dispose();
-      updatedState.remove(id);
-      changed = true;
+    // 2) Соседей грузим в фоне, без await
+    for (final id in neededIds) {
+      if (id == currentIndex) continue; // уже загрузили
+      _addController(id, urls[id]); // фоновая загрузка
     }
 
-    if (changed) {
-      state = updatedState;
+    // 3) Очистка: удаляем контроллеры, которые больше не нужны
+    final updated = Map<int, VideoPlayerController>.from(state);
+    final removable = state.keys
+        .where((id) => !neededIds.contains(id))
+        .toList();
+
+    for (final id in removable) {
+      updated[id]!.dispose();
+      updated.remove(id);
+    }
+
+    if (removable.isNotEmpty) {
+      state = updated;
     }
   }
 
@@ -73,7 +88,7 @@ class ReelsCacheService extends _$ReelsCacheService {
 }
 
 @riverpod
-VideoPlayerController? getController(Ref ref, String id) {
+VideoPlayerController? getController(Ref ref, int id) {
   final service = ref.watch(reelsCacheServiceProvider);
   return service[id];
 }

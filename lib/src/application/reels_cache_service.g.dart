@@ -14,10 +14,7 @@ const reelsCacheServiceProvider = ReelsCacheServiceProvider._();
 
 final class ReelsCacheServiceProvider
     extends
-        $NotifierProvider<
-          ReelsCacheService,
-          Map<String, VideoPlayerController>
-        > {
+        $NotifierProvider<ReelsCacheService, Map<int, VideoPlayerController>> {
   const ReelsCacheServiceProvider._()
     : super(
         from: null,
@@ -37,21 +34,21 @@ final class ReelsCacheServiceProvider
   ReelsCacheService create() => ReelsCacheService();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(Map<String, VideoPlayerController> value) {
+  Override overrideWithValue(Map<int, VideoPlayerController> value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<Map<String, VideoPlayerController>>(
+      providerOverride: $SyncValueProvider<Map<int, VideoPlayerController>>(
         value,
       ),
     );
   }
 }
 
-String _$reelsCacheServiceHash() => r'93bb586361be1beb6f6f0a04da0125abea24629a';
+String _$reelsCacheServiceHash() => r'9467f1b282c892c9826b371be7d33c646230afda';
 
 abstract class _$ReelsCacheService
-    extends $Notifier<Map<String, VideoPlayerController>> {
-  Map<String, VideoPlayerController> build();
+    extends $Notifier<Map<int, VideoPlayerController>> {
+  Map<int, VideoPlayerController> build();
   @$mustCallSuper
   @override
   void runBuild() {
@@ -59,17 +56,17 @@ abstract class _$ReelsCacheService
     final ref =
         this.ref
             as $Ref<
-              Map<String, VideoPlayerController>,
-              Map<String, VideoPlayerController>
+              Map<int, VideoPlayerController>,
+              Map<int, VideoPlayerController>
             >;
     final element =
         ref.element
             as $ClassProviderElement<
               AnyNotifier<
-                Map<String, VideoPlayerController>,
-                Map<String, VideoPlayerController>
+                Map<int, VideoPlayerController>,
+                Map<int, VideoPlayerController>
               >,
-              Map<String, VideoPlayerController>,
+              Map<int, VideoPlayerController>,
               Object?,
               Object?
             >;
@@ -90,7 +87,7 @@ final class GetControllerProvider
     with $Provider<VideoPlayerController?> {
   const GetControllerProvider._({
     required GetControllerFamily super.from,
-    required String super.argument,
+    required int super.argument,
   }) : super(
          retry: null,
          name: r'getControllerProvider',
@@ -117,7 +114,7 @@ final class GetControllerProvider
 
   @override
   VideoPlayerController? create(Ref ref) {
-    final argument = this.argument as String;
+    final argument = this.argument as int;
     return getController(ref, argument);
   }
 
@@ -140,10 +137,10 @@ final class GetControllerProvider
   }
 }
 
-String _$getControllerHash() => r'02864fa9231e06336609c383b2ff36a2613a3646';
+String _$getControllerHash() => r'995b431f4fb50147b2d16d29822da9d458845f26';
 
 final class GetControllerFamily extends $Family
-    with $FunctionalFamilyOverride<VideoPlayerController?, String> {
+    with $FunctionalFamilyOverride<VideoPlayerController?, int> {
   const GetControllerFamily._()
     : super(
         retry: null,
@@ -153,7 +150,7 @@ final class GetControllerFamily extends $Family
         isAutoDispose: true,
       );
 
-  GetControllerProvider call(String id) =>
+  GetControllerProvider call(int id) =>
       GetControllerProvider._(argument: id, from: this);
 
   @override
